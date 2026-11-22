@@ -2,7 +2,7 @@
 
 > 四层注入，全程可还原。把 WorkBuddy（腾讯 · Electron 版）改造成「破甲」执行内核。
 
-这是 `lgb-24/lgb.github.io` 的 GitHub Pages 站点源码，用于展示并分发 **WorkBuddy 破甲插件 v1.2**。
+这是 `lgb-24/pojia` 的 GitHub Pages 站点源码，用于展示并分发 **WorkBuddy 破甲插件 v1.2**。
 
 ## 站点内容
 
@@ -21,4 +21,4 @@ python -m http.server 8000
 
 推送到 `main` 分支后，在仓库 Settings → Pages 中将 Source 设为 `Deploy from a branch` / `main` / `/ (root)` 即自动发布。
 
-访问地址：https://lgb-24.github.io
+访问地址：https://lgb-24.github.io/pojia/
