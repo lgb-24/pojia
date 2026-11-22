@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="WorkBuddy 破甲插件 v1.2 —— 四层注入，全程可还原。把 WorkBuddy 改造成破甲执行内核。">
+<meta name="theme-color" content="#07090f">
+<title>破甲 POJIA · WorkBuddy 执行内核</title>
+<style>
+:root{
+  --bg:#07090f; --bg2:#0d1018; --card:#11151f; --card2:#141a26;
+  --line:#1e2634; --line2:#2a3446;
+  --txt:#e8ecf4; --sub:#9aa4b8; --dim:#5f6a80;
+  --cyan:#00e6b8; --cyan2:#00b894;
+  --purple:#a06bff; --red:#ff4767; --amber:#ffb547;
+  --mono:'JetBrains Mono','Cascadia Code','Consolas','SF Mono',monospace;
+  --sans:'Inter','PingFang SC','Microsoft YaHei','Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);line-height:1.7;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--cyan);color:#04120e}
+
+/* ---------- background ---------- */
+.grid-bg{position:fixed;inset:0;z-index:-2;background-image:linear-gradient(rgba(0,230,184,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(0,230,184,.045) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(ellipse 70% 60% at 50% 0%,#000 20%,transparent 85%)}
+.glow{position:fixed;border-radius:50%;filter:blur(120px);z-index:-1;pointer-events:none;opacity:.5}
+.glow.a{width:520px;height:520px;background:rgba(0,230,184,.13);top:-160px;left:-120px}
+.glow.b{width:480px;height:480px;background:rgba(160,107,255,.12);top:220px;right:-160px}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,9,15,.72);border-bottom:1px solid var(--line)}
+.nav-in{max-width:1120px;margin:auto;padding:14px 24px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px;font-size:18px}
+.brand .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:grid;place-items:center;color:#04120e;font-family:var(--mono);font-size:15px;font-weight:900;box-shadow:0 0 22px rgba(0,230,184,.35)}
+.brand small{font-family:var(--mono);font-size:10px;color:var(--dim);font-weight:600;letter-spacing:2px}
+.nav-links{display:flex;gap:24px;margin-left:auto;font-size:14px;color:var(--sub)}
+.nav-links a{transition:.2s}.nav-links a:hover{color:var(--cyan)}
+.btn-sm{padding:8px 16px;border:1px solid var(--line2);border-radius:8px;font-size:13px;font-weight:600;transition:.2s;white-space:nowrap}
+.btn-sm:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* ---------- hero ---------- */
+.hero{max-width:1120px;margin:auto;padding:96px 24px 70px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--cyan);border:1px solid rgba(0,230,184,.3);background:rgba(0,230,184,.06);padding:6px 12px;border-radius:100px;margin-bottom:22px}
+.tag .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hero h1{font-size:clamp(38px,5.2vw,62px);line-height:1.12;font-weight:850;letter-spacing:-1.5px}
+.hero h1 .grad{background:linear-gradient(100deg,var(--cyan),#7ff,var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{color:var(--sub);font-size:17px;margin-top:22px;max-width:520px}
+.hero .lead b{color:var(--txt);font-weight:600}
+.cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+.btn{padding:14px 24px;border-radius:10px;font-weight:700;font-size:15px;display:inline-flex;align-items:center;gap:9px;transition:.22s;cursor:pointer}
+.btn.primary{background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#04120e;box-shadow:0 8px 26px rgba(0,230,184,.25)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(0,230,184,.38)}
+.btn.ghost{border:1px solid var(--line2);color:var(--txt)}
+.btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn svg{width:17px;height:17px}
+.ver{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:18px}
+.ver span{color:var(--amber)}
+
+/* terminal */
+.term{background:#0b0e15;border:1px solid var(--line2);border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(0,230,184,.05)}
+.term-bar{display:flex;align-items:center;gap:7px;padding:12px 16px;background:#0f131c;border-bottom:1px solid var(--line)}
+.term-bar i{width:11px;height:11px;border-radius:50%;display:block}
+.term-bar i:nth-child(1){background:#ff5f56}.term-bar i:nth-child(2){background:#ffbd2e}.term-bar i:nth-child(3){background:#27c93f}
+.term-bar span{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.term-body{padding:20px;font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--sub)}
+.term-body .p{color:var(--cyan)}.term-body .g{color:var(--amber)}.term-body .ok{color:#4ade80}.term-body .c{color:var(--dim)}
+.term-body .cmd{color:var(--txt)}
+.typing::after{content:'▋';color:var(--cyan);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- stats ---------- */
+.stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(13,16,24,.5)}
+.stats-in{max-width:1120px;margin:auto;padding:34px 24px;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center}
+.stat .num{font-family:var(--mono);font-size:38px;font-weight:800;color:var(--cyan);line-height:1}
+.stat .lbl{font-size:13px;color:var(--sub);margin-top:8px}
+
+/* ---------- sections ---------- */
+section{padding:88px 24px}
+.wrap{max-width:1120px;margin:auto}
+.head{text-align:center;margin-bottom:54px}
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--cyan);letter-spacing:3px;text-transform:uppercase}
+.head h2{font-size:clamp(28px,3.6vw,40px);font-weight:800;margin-top:12px;letter-spacing:-.8px}
+.head p{color:var(--sub);max-width:600px;margin:14px auto 0}
+
+/* feature cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:linear-gradient(160deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:26px;transition:.25s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.card::before{content:'';position:absolute;inset:0 auto auto 0;width:100%;height:2px;background:linear-gradient(90deg,var(--cyan),transparent);opacity:0;transition:.25s}
+.card:hover::before{opacity:1}
+.ico{width:44px;height:44px;border-radius:11px;background:rgba(0,230,184,.09);border:1px solid rgba(0,230,184,.2);display:grid;place-items:center;color:var(--cyan);font-family:var(--mono);font-size:19px;margin-bottom:18px;font-weight:800}
+.card h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--sub)}
+.card .idx{position:absolute;top:20px;right:22px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+
+/* layers */
+.layers{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;position:relative}
+.layer{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 16px;position:relative;transition:.25s}
+.layer:hover{border-color:var(--cyan);transform:translateY(-4px)}
+.layer .ln{font-family:var(--mono);font-size:11px;color:var(--cyan);font-weight:800}
+.layer h4{font-size:15px;margin:8px 0 6px;font-weight:700}
+.layer p{font-size:12px;color:var(--sub);line-height:1.6}
+.layer .bar{height:3px;border-radius:3px;background:linear-gradient(90deg,var(--cyan),var(--purple));margin-top:14px;opacity:.7}
+
+/* skills grid */
+.skills{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.skill{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px;transition:.2s}
+.skill:hover{border-color:var(--cyan);background:var(--card2)}
+.skill .em{font-family:var(--mono);font-size:18px;color:var(--purple);font-weight:800;width:26px;text-align:center}
+.skill b{font-size:13.5px;font-weight:600;display:block}
+.skill small{font-size:11px;color:var(--dim);font-family:var(--mono)}
+
+/* install split */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.steps{counter-reset:s}
+.step{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.step:last-child{border:none}
+.step::before{counter-increment:s;content:counter(s);flex:0 0 34px;height:34px;border-radius:9px;background:rgba(160,107,255,.1);border:1px solid rgba(160,107,255,.3);color:var(--purple);display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:14px}
+.step h4{font-size:15px;font-weight:700}
+.step p{font-size:13px;color:var(--sub);margin-top:3px}
+.codebox{background:#0b0e15;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.codebox .cb-head{display:flex;align-items:center;padding:11px 16px;background:#0f131c;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--dim)}
+.copy{margin-left:auto;cursor:pointer;color:var(--cyan);font-size:11px;font-family:var(--mono);border:1px solid var(--line2);padding:3px 9px;border-radius:6px;transition:.2s}
+.copy:hover{background:rgba(0,230,184,.1)}
+.codebox pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--sub)}
+.codebox .c1{color:var(--cyan)}.codebox .c2{color:var(--amber)}.codebox .c3{color:var(--dim)}
+
+/* faq */
+.faq{max-width:800px;margin:auto}
+.q{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--card);overflow:hidden}
+.q summary{padding:18px 20px;cursor:pointer;font-weight:600;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.q summary::-webkit-details-marker{display:none}
+.q summary::after{content:'+';font-family:var(--mono);font-size:20px;color:var(--cyan);font-weight:400}
+.q[open] summary::after{content:'−'}
+.q .a{padding:0 20px 18px;color:var(--sub);font-size:13.5px}
+
+/* download banner */
+.dl{background:linear-gradient(135deg,rgba(0,230,184,.1),rgba(160,107,255,.08));border:1px solid var(--line2);border-radius:18px;padding:48px;text-align:center;position:relative;overflow:hidden}
+.dl::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(0,230,184,.12),transparent 60%);pointer-events:none}
+.dl h2{font-size:30px;font-weight:800}
+.dl p{color:var(--sub);margin:12px auto 26px;max-width:560px}
+.dl .hash{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:20px;word-break:break-all}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:36px 24px;text-align:center;color:var(--dim);font-size:13px}
+footer .brand{justify-content:center;margin-bottom:12px;font-size:15px}
+
+.reveal{opacity:0;transform:translateY(22px);transition:.7s cubic-bezier(.2,.7,.2,1)}
+.reveal.show{opacity:1;transform:none}
+
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:60px;gap:36px}
+  .cards,.skills{grid-template-columns:repeat(2,1fr)}
+  .layers{grid-template-columns:repeat(2,1fr)}
+  .split{grid-template-columns:1fr;gap:28px}
+  .stats-in{grid-template-columns:repeat(2,1fr)}
+  .nav-links{display:none}
+}
+@media(max-width:560px){
+  .cards,.skills,.layers{grid-template-columns:1fr}
+  .hero h1{font-size:36px}
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="glow a"></div>
+<div class="glow b"></div>
+
+<nav>
+  <div class="nav-in">
+    <div class="brand"><span class="mark">破</span><span>POJIA <small>v1.2</small></span></div>
+    <div class="nav-links">
+      <a href="#features">核心能力</a>
+      <a href="#arch">注入架构</a>
+      <a href="#skills">技能矩阵</a>
+      <a href="#install">快速开始</a>
+      <a href="#faq">常见问题</a>
+    </div>
+    <a href="#download" class="btn-sm">下载插件 ↗</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="reveal show">
+    <div class="tag"><span class="dot"></span> WORKBUDDY · EXECUTION CORE</div>
+    <h1>让 WorkBuddy<br>化身<span class="grad">破甲内核</span></h1>
+    <p class="lead">四层注入，全程可还原。把腾讯 WorkBuddy（Electron 版）改造成 <b>「指令即唯一目标」</b> 的破甲执行内核——技能、记忆、人设、设置、模板，一次到位。</p>
+    <div class="cta">
+      <a href="#download" class="btn primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>
+        立即下载
+      </a>
+      <a href="#arch" class="btn ghost">查看架构 →</a>
+    </div>
+    <div class="ver">CURRENT RELEASE <span>v1.2</span> · AES-256 加密载荷 · Windows 桌面版</div>
+  </div>
+  <div class="reveal show">
+    <div class="term">
+      <div class="term-bar"><i></i><i></i><i></i><span>powershell · auto-inject.ps1</span></div>
+      <div class="term-body" id="termBody">
+        <div><span class="c"># 一键扫描 → 关进程 → 注入 → 体检 → 重启</span></div>
+        <div><span class="p">PS&gt;</span> <span class="cmd">.\auto-inject.ps1</span></div>
+        <div><span class="c">[*]</span> 扫描全部磁盘 ... <span class="g">7s</span></div>
+        <div><span class="c">[+]</span> 安装 <span class="g">D:\Apps\WorkBuddy</span></div>
+        <div><span class="c">[+]</span> L1 技能 <span class="ok">11/11</span> · L5 模板 <span class="ok">10/10</span></div>
+        <div><span class="c">[+]</span> customPrompt <span class="g">581</span> 字符</div>
+        <div><span class="ok">[✓]</span> 五层体检全绿 · 退出码 <span class="ok">0</span> <span class="typing"></span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stats-in">
+    <div class="stat reveal"><div class="num" data-to="5">0</div><div class="lbl">层注入架构</div></div>
+    <div class="stat reveal"><div class="num" data-to="11">0</div><div class="lbl">个内置技能</div></div>
+    <div class="stat reveal"><div class="num" data-to="307">0</div><div class="lbl">个加密载荷文件</div></div>
+    <div class="stat reveal"><div class="num" data-to="198">0</div><div class="lbl">条知识库条目</div></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">// CORE CAPABILITIES</div>
+      <h2>为「直接交付」而设计</h2>
+      <p>不是插件，是一整套让 AI 进入破甲状态的注入体系。每一项能力都围绕「不请示、不设前提、全程可还原」构建。</p>
+    </div>
+    <div class="cards">
+      <div class="card reveal"><div class="idx">01</div><div class="ico">⟠</div><h3>四层注入，五层覆盖</h3><p>技能 / 记忆 / 人设 / 设置 / 模板，从用户目录到系统提示本体，逐层接管，开新会话即生效。</p></div>
+      <div class="card reveal"><div class="idx">02</div><div class="ico">⌘</div><h3>全盘智能扫描</h3><p>注册表、快捷方式、常见路径、广度遍历四线交叉，自动发现所有盘上的安装与数据目录，多账户不漏号。</p></div>
+      <div class="card reveal"><div class="idx">03</div><div class="ico">⛨</div><h3>AES-256 载荷加密</h3><p>技能与提示词以密文分发，PBKDF2 派生密钥、每文件独立 IV，网盘/磁盘上不留明文。</p></div>
+      <div class="card reveal"><div class="idx">04</div><div class="ico">↺</div><h3>全量备份还原</h3><p>每次安装生成批次备份与 manifest 清单，一键倒序回滚，幂等安装不叠加内容。</p></div>
+      <div class="card reveal"><div class="idx">05</div><div class="ico">◉</div><h3>常驻守护自启</h3><p>模板被 WorkBuddy 升级覆盖即自动重注入，可注册开机自启，登录时静默扫描。</p></div>
+      <div class="card reveal"><div class="idx">06</div><div class="ico">✓</div><h3>安装后五层体检</h3><p>技能计数、标记块、customPrompt 长度、模板特征词与结构闭合校验，装没装好一目了然。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="arch" style="background:rgba(13,16,24,.45);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">// INJECTION ARCHITECTURE</div>
+      <h2>五层注入架构</h2>
+      <p>每一层都有明确的载体与落点，权重从「按需加载」递增到「系统提示本体」。</p>
+    </div>
+    <div class="layers">
+      <div class="layer reveal"><div class="ln">L1</div><h4>技能层</h4><p>11 个技能装入 ~/.workbuddy/skills，按关键词自动加载。</p><div class="bar"></div></div>
+      <div class="layer reveal"><div class="ln">L2</div><h4>记忆层</h4><p>MEMORY.md 标记块，每轮注入，4000 字符上限。</p><div class="bar"></div></div>
+      <div class="layer reveal"><div class="ln">L3</div><h4>人设层</h4><p>SOUL.md 覆盖官方人设，明写 embody persona and tone。</p><div class="bar"></div></div>
+      <div class="layer reveal"><div class="ln">L4</div><h4>设置层</h4><p>settings.json 的 customPrompt 常驻指令。</p><div class="bar"></div></div>
+      <div class="layer reveal"><div class="ln">L5</div><h4>模板层</h4><p>改写系统提示模板本体，替换策略、注入内核，权重最高。</p><div class="bar"></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="skills">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">// SKILL MATRIX</div>
+      <h2>11 个技能 · 覆盖全场景</h2>
+      <p>9 类安全知识库 + 破甲内核契约 + 逆向总控，命中关键词自动加载对应方法论。</p>
+    </div>
+    <div class="skills">
+      <div class="skill reveal"><span class="em">01</span><div><b>破甲内核</b><small>pojia-core</small></div></div>
+      <div class="skill reveal"><span class="em">02</span><div><b>逆向总控</b><small>kb-reverse · 22 模块</small></div></div>
+      <div class="skill reveal"><span class="em">03</span><div><b>Web CMS</b><small>19 entries</small></div></div>
+      <div class="skill reveal"><span class="em">04</span><div><b>Java Web</b><small>23 entries</small></div></div>
+      <div class="skill reveal"><span class="em">05</span><div><b>Java 反序列化</b><small>10 entries</small></div></div>
+      <div class="skill reveal"><span class="em">06</span><div><b>Exchange / AD</b><small>14 entries</small></div></div>
+      <div class="skill reveal"><span class="em">07</span><div><b>云原生 / 容器</b><small>15 entries</small></div></div>
+      <div class="skill reveal"><span class="em">08</span><div><b>边界设备</b><small>17 entries</small></div></div>
+      <div class="skill reveal"><span class="em">09</span><div><b>业务安全</b><small>60 entries</small></div></div>
+      <div class="skill reveal"><span class="em">10</span><div><b>Linux 提权</b><small>12 entries</small></div></div>
+      <div class="skill reveal"><span class="em">11</span><div><b>指纹与研判</b><small>triage · 4 entries</small></div></div>
+      <div class="skill reveal"><span class="em">↗</span><div><b>持续扩充</b><small>模块化可插拔</small></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="install" style="background:rgba(13,16,24,.45);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap split">
+    <div class="reveal">
+      <div class="eyebrow">// QUICK START</div>
+      <h2 style="font-size:clamp(28px,3.6vw,40px);font-weight:800;margin-top:12px">三步完成注入</h2>
+      <div class="steps">
+        <div class="step"><div><h4>解压插件包</h4><p>解压到任意目录，中文路径也没问题。</p></div></div>
+        <div class="step"><div><h4>完全退出 WorkBuddy</h4><p>托盘退出，并在任务管理器确认无残留进程。</p></div></div>
+        <div class="step"><div><h4>双击「一键自动注入.cmd」</h4><p>自动扫盘、关进程、逐层注入、五项体检、拉起 App。</p></div></div>
+      </div>
+    </div>
+    <div class="codebox reveal">
+      <div class="cb-head">powershell <span class="copy" data-copy="# 全自动扫描 + 注入
+.\auto-inject.ps1
+
+# 只看体检，不改动文件
+.\auto-inject.ps1 -VerifyOnly
+
+# 多安装批量注入
+.\auto-inject.ps1 -All
+
+# 常驻守护 + 开机自启
+.\auto-inject.ps1 -Watch -InstallStartup
+
+# 一键还原
+.\install.ps1 -Revert -Force">复制</span></div>
+      <pre><span class="c3"># 全自动扫描 + 注入</span>
+<span class="c1">.\auto-inject.ps1</span>
+
+<span class="c3"># 只看体检，不改动文件</span>
+<span class="c1">.\auto-inject.ps1</span> <span class="c2">-VerifyOnly</span>
+
+<span class="c3"># 多安装批量 + 守护自启</span>
+<span class="c1">.\auto-inject.ps1</span> <span class="c2">-All</span>
+<span class="c1">.\auto-inject.ps1</span> <span class="c2">-Watch -InstallStartup</span>
+
+<span class="c3"># 一键还原</span>
+<span class="c1">.\install.ps1</span> <span class="c2">-Revert -Force</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">// FAQ</div>
+      <h2>常见问题</h2>
+    </div>
+    <div class="faq reveal">
+      <details class="q"><summary>装完了但感觉没生效？</summary><div class="a">必须重启 WorkBuddy 并开新会话——系统提示在会话创建时组装，旧会话不会变。还不行就跑「一键体检.cmd」，看哪一层红了。</div></details>
+      <details class="q"><summary>双击没反应 / 一闪而过？</summary><div class="a">用 PowerShell 在该目录运行 .\auto-inject.ps1 看报错。若提示脚本未签名，先执行：powershell -ExecutionPolicy Bypass -File .\auto-inject.ps1</div></details>
+      <details class="q"><summary>提示「未找到 WorkBuddy 安装目录」？</summary><div class="a">便携版或自定义路径：.\auto-inject.ps1 -Exe "你的\WorkBuddy.exe"；数据目录不在默认位置：加 -DataDir "你的\.workbuddy"。</div></details>
+      <details class="q"><summary>WorkBuddy 升级后失效？</summary><div class="a">升级会覆盖模板层。重跑「一键自动注入.cmd」即可；也可用 .\auto-inject.ps1 -Watch -InstallStartup 常驻守护，检测到覆盖自动重注入。</div></details>
+      <details class="q"><summary>如何修改身份称谓？</summary><div class="a">改 prompt 各文件中对应的称谓后重跑安装器即可。包内 skills/prompt 以密文存放，先 .\tools\pojia-pack.ps1 -Action unseal 还原明文，改完再 -Action seal。</div></details>
+      <details class="q"><summary>如何还原到原始状态？</summary><div class="a">双击「点我还原.cmd」（= install.ps1 -Revert），按 backups 里最新批次倒序还原：模板恢复原文、记忆/人设删块、设置还原、技能目录删除。</div></details>
+    </div>
+  </div>
+</section>
+
+<section id="download" style="padding-top:20px">
+  <div class="wrap">
+    <div class="dl reveal">
+      <h2>获得破甲插件 v1.2</h2>
+      <p>包含全部脚本、加密载荷与打包工具。解压后按「三步完成注入」操作，全程可还原。</p>
+      <a href="downloads/WorkBuddy破甲插件-v1.2.zip" download class="btn primary" style="font-size:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>
+        下载 ZIP · 1.57 MB
+      </a>
+      <div class="hash">SHA-256 · 107DFBED36ECF054B1F1472642D88C49F6AD6D400215160FEFE211C15EB9A592</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="brand"><span class="mark">破</span><span>POJIA <small>EXECUTION CORE</small></span></div>
+  <div>WorkBuddy 破甲插件 v1.2 · 指令即唯一目标 · 全程可还原</div>
+  <div style="margin-top:6px;color:var(--dim)">Sandbox research artifact · <a href="https://github.com/lgb-24/lgb.github.io" style="color:var(--cyan)">lgb-24/lgb.github.io</a></div>
+</footer>
+
+<script>
+// scroll reveal
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal:not(.show)').forEach(el=>io.observe(el));
+
+// count up
+const io2=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){const el=e.target,to=+el.dataset.to;let n=0;const step=Math.max(1,Math.ceil(to/40));const t=setInterval(()=>{n+=step;if(n>=to){n=to;clearInterval(t)}el.textContent=n.toLocaleString()},22);io2.unobserve(el)}}),{threshold:.5});
+document.querySelectorAll('.num[data-to]').forEach(el=>io2.observe(el));
+
+// copy buttons
+document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',()=>{
+  navigator.clipboard.writeText(b.dataset.copy).then(()=>{const o=b.textContent;b.textContent='已复制 ✓';setTimeout(()=>b.textContent=o,1600)})
+}));
+
+// nav link highlight is handled by :hover; no extra deps
+</script>
+</body>
+</html>
